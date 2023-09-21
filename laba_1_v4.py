@@ -3,6 +3,10 @@ import logging
 
 logging.basicConfig(level=logging.DEBUG)
 
+# 'can_be_with' - LEFT, 'key' - RIGHT
+# FUNC_NAME - Function name
+# FUNC - Function start parentesis
+# TODO: 1. Recursive parse
 
 class Analyzer:
     def __init__(self, expression):
@@ -16,48 +20,43 @@ class Analyzer:
         self.token_types = {
             'FLOAT': {
                 'regex': '^\d+\.\d+',
-                'can_be_with': ['FUNC', 'ALG', 'PAR_L', 'START'],
-                'can_be_at_end': True,
+                'can_be_with': ['FUNC', 'ALG', 'MINUS', 'PLUS', 'PAR_L', 'START'],
             },
             'NUM': {
                 'regex': '^\d+',
-                'can_be_with': ['FUNC', 'ALG', 'PAR_L', 'START'],
-                'can_be_at_end': True,
+                'can_be_with': ['FUNC', 'ALG', 'MINUS', 'PLUS', 'PAR_L', 'START'],
             },
             'FUNC': {
-                'regex': '(^[a-zA-Z]+)\(',
-                'can_be_with': ['ALG', 'PAR_L', 'START'],
-                'can_be_at_end': False,
+                'regex': '^[a-zA-Z]+\(',
+                'can_be_with': ['ALG', 'MINUS', 'PLUS', 'PAR_L', 'START', 'FUNC'],
             },
             'VAR': {
                 'regex': '^[a-zA-Z]+',
-                'can_be_with': ['FUNC', 'ALG', 'PAR_L', 'PAR_R', 'START'],
-                'can_be_at_end': True,
+                'can_be_with': ['FUNC', 'ALG', 'MINUS', 'PLUS', 'PAR_L', 'START'],
+            },
+            'MINUS': {
+                'regex': '^-',
+                'can_be_with': ['NUM', 'FLOAT', 'VAR', 'PAR_R', 'START'],
+            },
+            'PLUS': {
+                'regex': '^\+',
+                'can_be_with': ['NUM', 'FLOAT', 'VAR', 'PAR_R'],
             },
             'ALG': {
-                'regex': '^[+\-*/]',
+                'regex': '^[\*/]',
                 'can_be_with': ['NUM', 'FLOAT', 'VAR', 'PAR_R'],
-                'can_be_at_end': False,
             },
             'PAR_L': {
                 'regex': '^\(',
-                'can_be_with': ['VAR', 'ALG', 'PAR_L', 'START'],
-                'can_be_at_end': False,
+                'can_be_with': ['ALG', 'MINUS', 'PLUS', 'PAR_L', 'START'],
             },
             'PAR_R': {
                 'regex': '^\)',
                 'can_be_with': ['NUM', 'FLOAT', 'VAR', 'PAR_R'],
-                'can_be_at_end': True,
             },
-            # 'COMA':{
-            #     'regex': '^,',
-            #     'can_be_with': ['NUM', 'FLOAT', 'VAR'],#'PAR_L' ,'PAR_R' can be if in function   # noqa: E501
-            #     'can_be_at_end': False,
-            # },
             'END': {
                 'regex': '^$',
                 'can_be_with': ['NUM', 'FLOAT', 'VAR', 'PAR_R'],
-                'can_be_at_end': True,  # must be
             },
         }
 
@@ -89,13 +88,12 @@ class Analyzer:
             if token:
 
                 if self.type_last not in self.token_types[type_token]['can_be_with']:
-                    self.error(
-                        f'"{self.type_last}" cant be with "{type_token}"')
+                    self.error(f'"{self.type_last}" cant be with "{type_token}"')
 
                 if type_token == 'FUNC':
                     opened_parenthesis += 1
                     func_name = self.token_value.replace('(', '')
-                    self.items.append((type_token, func_name))
+                    self.items.append(('FUNC_NAME', func_name))
                     self.token_value = '('
 
                 elif type_token == 'PAR_L':
@@ -104,14 +102,9 @@ class Analyzer:
                 elif type_token == 'PAR_R':
                     opened_parenthesis -= 1
                     if opened_parenthesis < 0:
-                        self.error(
-                            'Closed parenthesis ")" cant exist without "("')
+                        self.error('Closed parenthesis ")" cant exist without "("')
 
                 elif type_token == 'END':
-                    if self.token_types[type_token]['can_be_at_end'] == False:  # noqa: E712, E501
-                        self.error(f'Expression cant end with "{type_token}"')
-                    if self.end_index == 0:
-                        self.error('Empty string')
                     if opened_parenthesis > 0:
                         self.error(f'Parenthesis is not closed {opened_parenthesis} times')  # noqa: E501
                     stop = True
@@ -128,6 +121,5 @@ class Analyzer:
             return self.items
 
 
-while True:
-    expr = input("Input:\n")
-    a = Analyzer(expr).parse()
+expr = "-(x*2)/t-a+b(4*c-2.09*a(J(4-i)+N*2)+3.1415- mm+1+a*3+(saf(fs+2))-)"
+a = Analyzer(expr).parse_v4()
